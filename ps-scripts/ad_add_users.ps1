@@ -18,7 +18,6 @@ $ou_inpit = "OU=App-EDU,DC=edudom"
 
 
 
-
 function create_new_user {
     param (
         [string]$stud_id,
