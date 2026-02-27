@@ -29,9 +29,9 @@ function create_new_user {
     New-ADUser -server $ad_server -Name $stud_id -SamAccountName $stud_id -DisplayName $full_name -AccountPassword $Password -ChangePasswordAtLogon $true -Description $Description -Enabled $true -Path $ou_users
 
 #дополнительный функционал первой очереди
-    #create_folder -stud_id $stud_id -home_dir $home_dir
-    #set_homedrive_link -stud_id $stud_id -home_dir $home_dir
-    #set_acl -stud_id $stud_id -home_dir $home_dir
+    create_folder -stud_id $stud_id -home_dir $home_dir
+    set_homedrive_link -stud_id $stud_id -home_dir $home_dir
+    set_acl -stud_id $stud_id -home_dir $home_dir
 #дополнительный функционал первой очереди
     #move_user_to_container -stud_id $stud_id
     #adduser_to_inst_group
@@ -54,7 +54,7 @@ function restore_user {
 
     #check profile on correct discription
     if ($description -ne $ad_user_desc) { 
- #       move_folder -stud_id $stud_id -home_dir $home_dir
+         move_folder -stud_id $stud_id -home_dir $home_dir
  #       move_user_to_container -stud_id $stud_id
  #       clear_groups -stud_id $stud_id
  #       adduser_to_inst_group
@@ -68,6 +68,73 @@ function restore_user {
 
     }
 }
+
+function set_homedrive_link{
+    param ([string]$stud_id, [string]$home_dir)
+    Set-ADUser -server $ad_server -Identity $stud_id -HomeDirectory $home_dir -HomeDrive 'Z:'
+    Write-Output "$stud_id link ok"
+}
+  
+####create_home_dir_
+function create_folder {
+#check directory empty or not
+ param ([string]$home_dir) 
+    if (!(Test-Path $home_dir)) {
+        New-Item -ItemType Directory -Path $home_dir
+        Write-Output "folder $home_dir has been created"
+    } else {
+        Write-Output "$home_dir exists yet"
+    }
+}
+
+
+####set acl for user forlder
+function set_acl(){
+param ([string]$stud_id,[string]$home_dir)
+
+$acl = Get-Acl -Path $home_dir
+$new = "$ad_server\$stud_id","Modify","ContainerInherit,ObjectInherit","None","Allow"
+
+$accessRule = new-object System.Security.AccessControl.FileSystemAccessRule $new
+$acl.SetAccessRule($accessRule)
+Set-Acl -Path $home_dir -AclObject $acl
+Write-output "$stud_id acl ok"
+}
+
+
+
+function move_folder{
+    param ([string]$stud_id, [string]$home_dir)   
+    $ad_home_dir = $(Get-ADUser -Identity $stud_id -Server $ad_server -Properties HomeDirectory | Select-Object -ExpandProperty HomeDirectory)
+    
+    #if ad_home is empty
+    if ([string]::IsNullOrEmpty($ad_home_dir)){
+            create_folder -home_dir $home_dir
+    }
+    #if ad_home != home_dir
+    elseif ($ad_home_dir.ToString().trim() -ne $home_dir){
+        if (Test-Path $ad_home_dir){
+            #### Write-Output "$ad_home_dir status 0" debug # #create
+            Move-Item $ad_home_dir -Destination $home_dir -Force 
+            Write-host "folder $stud_id moved socessfully"
+        } else {
+            create_folder -home_dir $home_dir
+        }
+    }
+    #if ad_home == home_dir
+    elseif ($ad_home_dir.ToString().trim() -eq $home_dir) {
+        if (!(Test-Path $home_dir)){
+            create_folder -home_dir $home_dir
+        }
+        else {
+            Write-Output "folder of $stud_id is on correct way :D"
+        }
+    }
+
+    set_acl -stud_id $stud_id -home_dir $home_dir
+    set_homedrive_link -stud_id $stud_id -home_dir $home_dir
+}
+
 
 
 #enable and set new_description
