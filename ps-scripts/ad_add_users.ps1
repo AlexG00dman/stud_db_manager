@@ -23,7 +23,7 @@ function create_new_user {
         [string]$stud_id,
         [string]$full_name,
         [string]$description,
-	    [string]$pass
+        [string]$pass
     )     
     $Password = ConvertTo-SecureString $pass -AsPlainText -Force
     New-ADUser -server $ad_server -Name $stud_id -SamAccountName $stud_id -DisplayName $full_name -AccountPassword $Password -ChangePasswordAtLogon $true -Description $Description -Enabled $true -Path $ou_users
@@ -34,7 +34,7 @@ function create_new_user {
     set_acl -stud_id $stud_id -home_dir $home_dir
 #дополнительный функционал второй очереди очереди
     #move_user_to_container -stud_id $stud_id
-    #adduser_to_inst_group
+    adduser_to_inst_group
     #adduser_to_stud_group
              
     Write-Output "user with number: $stud_number and name: $full_name added to ad successfully"
@@ -47,7 +47,7 @@ function restore_user {
         [string]$stud_id,
         [string]$full_name,
         [string]$description,
-	    [string]$pass,
+        [string]$pass,
         [string]$home_dir
     )
     $ad_user_desc = Get-ADUser -Server $ad_server -Identity $stud_id -Properties Description | Select-Object Description 
@@ -172,6 +172,29 @@ function adduser_to_univer_group(){
             } else {
                 Add-ADGroupMember -Server $ad_server -Identity $inst -Members $stud_id
                 Write-Output "$stud_id added in the $inst"
+            }
+        }
+    } catch {
+      Write-Host "$Inst Group does not exist." -ForegroundColor Red
+    }
+}
+
+
+#check existence user in Institute's groups 
+function adduser_to_inst_group(){
+    $stud_id = $($row.number)
+    $part_one = $($row.description.Split(' ')[0])
+    $inst = $part_one + "-студенты"
+  
+    try {
+        $Result = Get-ADGroup -Identity $inst -Server $ad_server
+        if ($null -ne $Result) {                       
+            $instUsers = Get-ADGroupMember -Server $ad_server -Identity $inst -Recursive | Select-Object -ExpandProperty Name
+            if ($instUsers -contains $stud_id) {
+                Write-Host "user: $stud_id member of $inst"
+            } else {
+                Add-ADGroupMember -Server $ad_server -Identity $inst -Members $stud_id
+                Write-Output "user: $stud_id added to the $inst"
             }
         }
     } catch {
