@@ -32,7 +32,7 @@ function create_new_user {
     create_folder -stud_id $stud_id -home_dir $home_dir
     set_homedrive_link -stud_id $stud_id -home_dir $home_dir
     set_acl -stud_id $stud_id -home_dir $home_dir
-#дополнительный функционал первой очереди
+#дополнительный функционал второй очереди очереди
     #move_user_to_container -stud_id $stud_id
     #adduser_to_inst_group
     #adduser_to_stud_group
@@ -55,8 +55,10 @@ function restore_user {
     #check profile on correct discription
     if ($description -ne $ad_user_desc) { 
          move_folder -stud_id $stud_id -home_dir $home_dir
+ 
  #       move_user_to_container -stud_id $stud_id
- #       clear_groups -stud_id $stud_id
+ #       functions working with groups
+         clear_groups -stud_id $stud_id
  #       adduser_to_inst_group
  #       adduser_to_stud_group
 
@@ -135,6 +137,26 @@ function move_folder{
     set_homedrive_link -stud_id $stud_id -home_dir $home_dir
 }
 
+
+
+#delete user from all not system groups
+function clear_groups (){
+    param ([string]$stud_id)
+    $groups = Get-ADPrincipalGroupMembership -server $ad_server -Identity $Aduser.sAMAccountName | Where-Object {($_.SID -ne "S-1-5-21-1660514390-1878642582-2000023620-513")-and ($_.SID -ne "S-1-5-21-1660514390-1878642582-2000023620-47544")}
+    if  (0 -eq  $groups.Count) {
+        Write-host "user: $stud_id have only system groups" -ForegroundColor Red 
+      
+    } else {
+    foreach ($stud_group in $groups){
+     try{
+       Remove-ADGroupMember -server $ad_server -identity $stud_group -Members $Aduser.sAMAccountName -Confirm:$false 
+       Write-Output "user: $stud_id removed from $stud_group"
+	}catch{
+       Write-Output "something happened ... :D"  
+    }
+  }
+}
+}
 
 
 #enable and set new_description
