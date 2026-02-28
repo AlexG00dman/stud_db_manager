@@ -59,7 +59,7 @@ function restore_user {
  #       move_user_to_container -stud_id $stud_id
  #       functions working with groups
          clear_groups -stud_id $stud_id
- #       adduser_to_inst_group
+         adduser_to_inst_group
  #       adduser_to_stud_group
 
         set_new_status -stud_id $stud_id -description $description -pass $pass
@@ -156,6 +156,27 @@ function clear_groups (){
     }
   }
 }
+}
+
+
+#check existence users in group of SSTU University
+function adduser_to_univer_group(){
+    $stud_id = $($row.number)
+      
+    try {
+        $Result = Get-ADGroup -Identity "sstu_students" -Server $ad_server
+        if ($null -ne $Result) {                       
+            $instUsers = Get-ADGroupMember -Server $ad_server -Identity $inst -Recursive | Select-Object -ExpandProperty Name
+            if ($instUsers -contains $stud_id) {
+                Write-Host "$stud_id member of $inst"
+            } else {
+                Add-ADGroupMember -Server $ad_server -Identity $inst -Members $stud_id
+                Write-Output "$stud_id added in the $inst"
+            }
+        }
+    } catch {
+      Write-Host "$Inst Group does not exist." -ForegroundColor Red
+    }
 }
 
 
