@@ -35,7 +35,7 @@ function create_new_user {
 #дополнительный функционал второй очереди очереди
     #move_user_to_container -stud_id $stud_id
     adduser_to_inst_group
-    #adduser_to_stud_group
+    adduser_to_stud_group
              
     Write-Output "user with number: $stud_number and name: $full_name added to ad successfully"
 }
@@ -60,7 +60,7 @@ function restore_user {
  #       functions working with groups
          clear_groups -stud_id $stud_id
          adduser_to_inst_group
- #       adduser_to_stud_group
+         adduser_to_stud_group
 
         set_new_status -stud_id $stud_id -description $description -pass $pass
         #Write-Output "debug 02"
@@ -199,6 +199,31 @@ function adduser_to_inst_group(){
         }
     } catch {
       Write-Host "$Inst Group does not exist." -ForegroundColor Red
+    }
+}
+
+
+# check users exist in stud_group or not
+function adduser_to_stud_group(){
+    $stud_id = $($row.number)
+    $inst_abbr = $($row.description.Split(' ')[0])
+    $group_name = $($row.description.Split(' ')[1])
+    $eduform = $($row.edu_form_pref)
+    $str_group = $eduform + $inst_abbr + "_" + $group_name.Replace("-", "_")
+  
+    try {
+        $Result = Get-ADGroup -Identity $str_group -Server $ad_server
+        if ($null -ne $Result) {                       
+            $groupUsers = Get-ADGroupMember -Server $ad_server -Identity $str_group -Recursive | Select-Object -ExpandProperty Name
+            if ($groupUsers -contains $stud_id) {
+                Write-Host "user: $stud_id member of $str_group"
+            } else {
+                Add-ADGroupMember -Server $ad_server -Identity $str_group -Members $stud_id
+                Write-Output "user: $stud_id added in the $str_group"
+            }
+        }
+    } catch {
+        Write-Host "$str_group Group does not exist." -ForegroundColor Red
     }
 }
 
