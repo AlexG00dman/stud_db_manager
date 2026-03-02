@@ -23,7 +23,7 @@ function create_new_user {
         [string]$stud_id,
         [string]$full_name,
         [string]$description,
-	    [string]$pass
+        [string]$pass
     )     
     $Password = ConvertTo-SecureString $pass -AsPlainText -Force
     New-ADUser -server $ad_server -Name $stud_id -SamAccountName $stud_id -DisplayName $full_name -AccountPassword $Password -ChangePasswordAtLogon $true -Description $Description -Enabled $true -Path $ou_users
@@ -32,10 +32,10 @@ function create_new_user {
     create_folder -stud_id $stud_id -home_dir $home_dir
     set_homedrive_link -stud_id $stud_id -home_dir $home_dir
     set_acl -stud_id $stud_id -home_dir $home_dir
-#дополнительный функционал первой очереди
+#дополнительный функционал второй очереди очереди
     #move_user_to_container -stud_id $stud_id
-    #adduser_to_inst_group
-    #adduser_to_stud_group
+    adduser_to_inst_group
+    adduser_to_stud_group
              
     Write-Output "user with number: $stud_number and name: $full_name added to ad successfully"
 }
@@ -47,7 +47,7 @@ function restore_user {
         [string]$stud_id,
         [string]$full_name,
         [string]$description,
-	    [string]$pass,
+        [string]$pass,
         [string]$home_dir
     )
     $ad_user_desc = Get-ADUser -Server $ad_server -Identity $stud_id -Properties Description | Select-Object Description 
@@ -55,10 +55,12 @@ function restore_user {
     #check profile on correct discription
     if ($description -ne $ad_user_desc) { 
          move_folder -stud_id $stud_id -home_dir $home_dir
- #       move_user_to_container -stud_id $stud_id
- #       clear_groups -stud_id $stud_id
- #       adduser_to_inst_group
- #       adduser_to_stud_group
+ 
+         move_user_to_container -stud_id $stud_id
+ #       functions working with groups
+         clear_groups -stud_id $stud_id
+         adduser_to_inst_group
+         adduser_to_stud_group
 
         set_new_status -stud_id $stud_id -description $description -pass $pass
         #Write-Output "debug 02"
@@ -88,7 +90,7 @@ function create_folder {
 }
 
 
-####set acl for user forlder
+####set acl for user folder
 function set_acl(){
 param ([string]$stud_id,[string]$home_dir)
 
@@ -135,6 +137,136 @@ function move_folder{
     set_homedrive_link -stud_id $stud_id -home_dir $home_dir
 }
 
+
+
+#delete user from all not system groups
+function clear_groups (){
+    param ([string]$stud_id)
+    $groups = Get-ADPrincipalGroupMembership -server $ad_server -Identity $Aduser.sAMAccountName | Where-Object {($_.SID -ne "S-1-5-21-1660514390-1878642582-2000023620-513")-and ($_.SID -ne "S-1-5-21-1660514390-1878642582-2000023620-47544")}
+    if  (0 -eq  $groups.Count) {
+        Write-host "user: $stud_id have only system groups" -ForegroundColor Red 
+      
+    } else {
+    foreach ($stud_group in $groups){
+     try{
+       Remove-ADGroupMember -server $ad_server -identity $stud_group -Members $Aduser.sAMAccountName -Confirm:$false 
+       Write-Output "user: $stud_id removed from $stud_group"
+	}catch{
+       Write-Output "something happened ... :D"  
+    }
+  }
+}
+}
+
+
+#check existence users in group of SSTU University
+function adduser_to_univer_group(){
+    $stud_id = $($row.number)
+      
+    try {
+        $Result = Get-ADGroup -Identity "sstu_students" -Server $ad_server
+        if ($null -ne $Result) {                       
+            $instUsers = Get-ADGroupMember -Server $ad_server -Identity $inst -Recursive | Select-Object -ExpandProperty Name
+            if ($instUsers -contains $stud_id) {
+                Write-Host "$stud_id member of $inst"
+            } else {
+                Add-ADGroupMember -Server $ad_server -Identity $inst -Members $stud_id
+                Write-Output "$stud_id added in the $inst"
+            }
+        }
+    } catch {
+      Write-Host "$Inst Group does not exist." -ForegroundColor Red
+    }
+}
+
+
+#check existence user in Institute's groups 
+function adduser_to_inst_group(){
+    $stud_id = $($row.number)
+    $part_one = $($row.description.Split(' ')[0])
+    $inst = $part_one + "-студенты"
+  
+    try {
+        $Result = Get-ADGroup -Identity $inst -Server $ad_server
+        if ($null -ne $Result) {                       
+            $instUsers = Get-ADGroupMember -Server $ad_server -Identity $inst -Recursive | Select-Object -ExpandProperty Name
+            if ($instUsers -contains $stud_id) {
+                Write-Host "user: $stud_id member of $inst"
+            } else {
+                Add-ADGroupMember -Server $ad_server -Identity $inst -Members $stud_id
+                Write-Output "user: $stud_id added to the $inst"
+            }
+        }
+    } catch {
+      Write-Host "$Inst Group does not exist." -ForegroundColor Red
+    }
+}
+
+
+# check users exist in stud_group or not
+function adduser_to_stud_group(){
+    $stud_id = $($row.number)
+    $inst_abbr = $($row.description.Split(' ')[0])
+    $group_name = $($row.description.Split(' ')[1])
+    $eduform = $($row.edu_form_pref)
+    $str_group = $eduform + $inst_abbr + "_" + $group_name.Replace("-", "_")
+  
+    try {
+        $Result = Get-ADGroup -Identity $str_group -Server $ad_server
+        if ($null -ne $Result) {                       
+            $groupUsers = Get-ADGroupMember -Server $ad_server -Identity $str_group -Recursive | Select-Object -ExpandProperty Name
+            if ($groupUsers -contains $stud_id) {
+                Write-Host "user: $stud_id member of $str_group"
+            } else {
+                Add-ADGroupMember -Server $ad_server -Identity $str_group -Members $stud_id
+                Write-Output "user: $stud_id added in the $str_group"
+            }
+        }
+    } catch {
+        Write-Host "$str_group Group does not exist." -ForegroundColor Red
+    }
+}
+
+
+#move user to container 'users'
+function move_user_to_container(){
+param ([string]$stud_id)
+    
+    $Aduser = Get-ADUser -Identity $stud_id -Server $ad_server
+     
+        if ($Aduser.DistinguishedName.Contains("$ou_deleted")) {
+            Write-Output "user: $stud_id have container 'OU=Удалённые'"
+            Move-ADObject -Server $ad_server -Identity:$Aduser.DistinguishedName -TargetPath: $ou_users
+        } else {       
+           Write-Output "user: $stud_id have container 'Users'"
+           move_user_to_inst_container -stud_id $stud_id
+        }
+}
+
+
+#move user to inst aproptiate inst container
+function move_user_to_inst_container() {
+    $inst = $($row.description.Split(' ')[0])
+    $Aduser = Get-ADUser -Identity $row.number -Server $ad_server
+    #Write-Output "$stud_id"
+    if ($inst -eq $inst_list[6]) {
+        if ($Aduser.DistinguishedName.Contains("$ou_inpit")) {
+            Write-Output "user: $stud_id have container $ou_inpit yet"
+        } else {
+            Move-ADObject -Server $ad_server -Identity:$Aduser.DistinguishedName -TargetPath: $ou_inpit
+            Write-Output "user: $stud_id moved to container $ou_inpit"
+        }
+    } elseif ($inst -eq $inst_list[5]) {
+        if ($Aduser.DistinguishedName.Contains($ou_sei)) {
+            Write-Output "user: $stud_id have container 'EI-EDU' yet"
+        } else {
+            Move-ADObject -Server $ad_server -Identity:$Aduser.DistinguishedName -TargetPath: $ou_sei
+            Write-Output "user: $stud_id moved to container 'EI-EDU'"
+        }
+    } else {
+        ##something not recognized ...." 
+    }
+}
 
 
 #enable and set new_description
