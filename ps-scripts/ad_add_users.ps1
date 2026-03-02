@@ -256,13 +256,15 @@ function move_user_to_inst_container() {
             Move-ADObject -Server $ad_server -Identity:$Aduser.DistinguishedName -TargetPath: $ou_inpit
             Write-Output "user: $stud_id moved to container $ou_inpit"
         }
-    } elseif ($inst -eq $inst_list[5]) {
-        if ($Aduser.DistinguishedName.Contains($ou_sei)) {
-            Write-Output "user: $stud_id have container 'EI-EDU' yet"
-        } else {
-            Move-ADObject -Server $ad_server -Identity:$Aduser.DistinguishedName -TargetPath: $ou_sei
-            Write-Output "user: $stud_id moved to container 'EI-EDU'"
-        }
+
+#    unit not more exists
+#    } elseif ($inst -eq $inst_list[5]) {
+#       if ($Aduser.DistinguishedName.Contains($ou_sei)) {
+#            Write-Output "user: $stud_id have container 'EI-EDU' yet"
+#        } else {
+#            Move-ADObject -Server $ad_server -Identity:$Aduser.DistinguishedName -TargetPath: $ou_sei
+#            Write-Output "user: $stud_id moved to container 'EI-EDU'"
+#        }
     } else {
         ##something not recognized ...." 
     }
