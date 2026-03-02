@@ -56,7 +56,7 @@ function restore_user {
     if ($description -ne $ad_user_desc) { 
          move_folder -stud_id $stud_id -home_dir $home_dir
  
- #       move_user_to_container -stud_id $stud_id
+         move_user_to_container -stud_id $stud_id
  #       functions working with groups
          clear_groups -stud_id $stud_id
          adduser_to_inst_group
@@ -90,7 +90,7 @@ function create_folder {
 }
 
 
-####set acl for user forlder
+####set acl for user folder
 function set_acl(){
 param ([string]$stud_id,[string]$home_dir)
 
@@ -224,6 +224,47 @@ function adduser_to_stud_group(){
         }
     } catch {
         Write-Host "$str_group Group does not exist." -ForegroundColor Red
+    }
+}
+
+
+#move user to container 'users'
+function move_user_to_container(){
+param ([string]$stud_id)
+    
+    $Aduser = Get-ADUser -Identity $stud_id -Server $ad_server
+     
+        if ($Aduser.DistinguishedName.Contains("$ou_deleted")) {
+            Write-Output "user: $stud_id have container 'OU=Удалённые'"
+            Move-ADObject -Server $ad_server -Identity:$Aduser.DistinguishedName -TargetPath: $ou_users
+        } else {       
+           Write-Output "user: $stud_id have container 'Users'"
+           move_user_to_inst_container -stud_id $stud_id
+        }
+}
+
+
+#move user to inst aproptiate inst container
+function move_user_to_inst_container() {
+    $inst = $($row.description.Split(' ')[0])
+    $Aduser = Get-ADUser -Identity $row.number -Server $ad_server
+    #Write-Output "$stud_id"
+    if ($inst -eq $inst_list[6]) {
+        if ($Aduser.DistinguishedName.Contains("$ou_inpit")) {
+            Write-Output "user: $stud_id have container $ou_inpit yet"
+        } else {
+            Move-ADObject -Server $ad_server -Identity:$Aduser.DistinguishedName -TargetPath: $ou_inpit
+            Write-Output "user: $stud_id moved to container $ou_inpit"
+        }
+    } elseif ($inst -eq $inst_list[5]) {
+        if ($Aduser.DistinguishedName.Contains($ou_sei)) {
+            Write-Output "user: $stud_id have container 'EI-EDU' yet"
+        } else {
+            Move-ADObject -Server $ad_server -Identity:$Aduser.DistinguishedName -TargetPath: $ou_sei
+            Write-Output "user: $stud_id moved to container 'EI-EDU'"
+        }
+    } else {
+        ##something not recognized ...." 
     }
 }
 
